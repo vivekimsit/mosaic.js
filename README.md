@@ -13,5 +13,5 @@ Have fun!
 
 Sample
 ------------
-![Cat-500px](img/mosaic-500px.jpg)
+![Cat-500px](img/cat-500px.jpg)
 ![Cat-mosaic-500px](img/cat-mosaic-500px.png)
