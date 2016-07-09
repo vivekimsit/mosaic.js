@@ -7,3 +7,11 @@ Photo mosaic
    composites the results into a photomosaic of the original image.
 
 Have fun!
+
+[Live Demo](https://vivekimsit.github.io/mosaic.js/)
+
+
+Sample
+------------
+![Cat-500px](img/mosaic-500px.png)
+![Cat-mosaic-500px](img/cat-mosaic-500px.png)
