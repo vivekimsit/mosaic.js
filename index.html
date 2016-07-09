@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script type="text/javascript" src="./mosaic.js"></script>
+    <title>Mosaic</title>
+    <style>
+      .container {
+        margin: 0 auto;
+        width: 50%;
+      }
+      .container ul {
+        list-style: none;
+        margin-left: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <ul id="image-list">
+      </ul>
+      <input id="input" type="file" accept="image/*">
+    </div>
+    <script>
+      window.onload = function() {
+        app.run();
+      };
+    </script>
+  </body>
+</html>
