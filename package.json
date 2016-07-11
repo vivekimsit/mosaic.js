@@ -1,0 +1,30 @@
+{
+  "name": "mosaic.js",
+  "version": "1.0.0",
+  "description": "Photo mosaic",
+  "main": "mosaic.js",
+  "scripts": {
+    "prestart": "npm update",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vivekimsit/mosaic.js.git"
+  },
+  "keywords": [
+    "Angular",
+    "Canvas"
+  ],
+  "author": "Vivek Poddar <vivekimsit@gmail.com> (http://www.vivekpoddar.com)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vivekimsit/mosaic.js/issues"
+  },
+  "homepage": "https://github.com/vivekimsit/mosaic.js",
+  "dependencies": {
+    "angular": "^1.5.7",
+    "angular-animate": "^1.5.7",
+    "angular-aria": "^1.5.7",
+    "angular-material": "git+https://github.com/angular/bower-material.git#master"
+  }
+}
