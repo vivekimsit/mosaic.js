@@ -15,15 +15,56 @@
     </style>
   </head>
   <body>
+    <script id="worker1" type="javascript/worker">
+      var SVG_URL = 'http://localhost:8765/color/';
+      function httpGet(url) {
+        return new Promise(function(resolve, reject) {
+          var req = new XMLHttpRequest();
+          req.open('GET', url);
+          req.onload = function() {
+            if (req.status == 200) {
+              resolve(req.response);
+            } else {
+              reject(Error(req.statusText));
+            }
+          };
+          req.onerror = function() { reject(Error('Network Error')); };
+          req.send();
+        });
+      };
+
+      function getSvg(data) {
+        return httpGet(SVG_URL + data.hex)
+            .then(function(svg) {
+              return {svg: svg, x: data.x, y: data.y};
+            })
+            .catch(function(error) {
+              console.log(error);
+            });
+      };
+
+      function messageHandler(e) {
+        var chunks = e.data;
+        Promise.all(chunks.map(function(data) { return getSvg(data); }))
+          .then(function(response) {
+            self.postMessage(response);
+          });
+      };
+
+      self.addEventListener('message', messageHandler, false);
+    </script>
     <div class="container">
       <ul id="image-list">
       </ul>
       <input id="input" type="file" accept="image/*">
     </div>
     <script>
-      window.onload = function() {
-        app.run();
-      };
+      (function(app) {
+        document.addEventListener('DOMContentLoaded', function() {
+          var blob = new Blob([document.querySelector('#worker1').textContent]);
+          app.run(window.URL.createObjectURL(blob));
+        });
+      })(window.app || (window.app = {}));
     </script>
   </body>
 </html>

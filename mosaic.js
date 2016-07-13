@@ -5,54 +5,62 @@
       TILE_WIDTH  = 8,
       TILE_HEIGHT = 8;
 
-  var svgTemplate = [
-    '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink"',
-    ' width="',
-    '" height="',
-    '">',
-    '<ellipse cx="50%" cy="50%" rx="50%" ry="50%" fill="',
-    '"></ellipse>',
-    '</svg>'
-  ];
+  // classy, since V8 prefers predictable objects.
+  function Tile(rgb, x, y) {
+    this.hex = Tile.rgbToHex(rgb);
+    this.x = x * TILE_WIDTH;
+    this.y = y * TILE_HEIGHT;
+  };
 
-  function componentToHex(c) {
+  // classy, since V8 prefers predictable objects.
+  function SVGTile(svg, x, y) {
+    this.svgURL = SVGTile.createSVGUrl(svg);
+    this.x = x;
+    this.y = y;
+    this.width  = TILE_WIDTH;
+    this.height = TILE_HEIGHT;
+  };
+
+  SVGTile.createSVGUrl = function(svg) {
+    var svgBlob = new Blob([svg], {type: 'image/svg+xml;charset=utf-8'});
+    return DOMURL.createObjectURL(svgBlob);
+  };
+
+  Tile.componentToHex = function(c) {
     var hex = c.toString(16);
     return hex.length == 1 ? '0' + hex : hex;
   };
 
-  function rgbToHex(rgb) {
-    return componentToHex(rgb[0]) + componentToHex(rgb[1]) +
-        componentToHex(rgb[2]);
-  };
-
-  function Tile(pixelData, x, y) {
-    this.hex = rgbToHex(pixelData);
-    this.x = x * TILE_WIDTH;
-    this.y = y * TILE_HEIGHT; 
+  Tile.rgbToHex = function(rgb) {
+    return Tile.componentToHex(rgb[0]) + Tile.componentToHex(rgb[1]) +
+        Tile.componentToHex(rgb[2]);
   };
 
   /**
    * Draws a offscreen canvas to get averaged rgb per tile.
    * see http://stackoverflow.com/a/17862644/4260745
    */
-  function getAverageRgb(image) {
+  function getOffScreenContext(width, height) {
     var canvas = document.createElement('canvas');
-    var ctx = canvas.getContext('2d');
-    canvas.width = image.width / TILE_WIDTH;
-    canvas.height = image.height / TILE_HEIGHT;
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-    return ctx;
+    canvas.width  = width;
+    canvas.height = height;
+    return canvas.getContext('2d');
   };
 
-  function getTilesMetaData(sourceImage) {
+  /**
+   * Gets tiles data from the source image.
+   * @param {HTMLElement} sourceImage
+   * @return {!Array<!Tile>}
+   */
+  function getTiles(sourceImage, tilesX, tilesY) {
     var res = [];
-    var context = getAverageRgb(sourceImage);
-    var NUM_TILES_X = Math.floor(sourceImage.width / TILE_WIDTH);
-    var NUM_TILES_Y = Math.floor(sourceImage.height / TILE_HEIGHT);
-    var data = context.getImageData(0, 0, NUM_TILES_X, NUM_TILES_Y).data;
+    var context = getOffScreenContext(tilesX, tilesY);
+    // see http://stackoverflow.com/a/17862644/4260745
+    context.drawImage(sourceImage, 0, 0, tilesX, tilesY);
+    var data = context.getImageData(0, 0, tilesX, tilesY).data;
     var i = 0;
-    for (var row = 0; row < NUM_TILES_Y; row++) {
-      for (var col = 0; col < NUM_TILES_X; col++) {
+    for (var row = 0; row < tilesY; row++) {
+      for (var col = 0; col < tilesX; col++) {
         res.push(new Tile(data.subarray(i * 4, i * 4 + 3), col, row));
         i++;
       }
@@ -61,72 +69,83 @@
   };
 
   /**
-   * Draws PhotoMosaic on screen.
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {!Array<!SVGTile>} tiles
    */
-  function drawMosiac(image) {
-    var canvas = document.createElement('canvas');
-    var ctx = canvas.getContext('2d');
-    canvas.width = image.width;
-    canvas.height = image.height;
-
-    var chunkSize = image.width / TILE_WIDTH;
-    var tilesMetadata = getTilesMetaData(image);
-    var chunks = tilesMetadata.splice(0, chunkSize);
-    var promises = [];
-    while (chunks.length > 0) {
-      promises.push(
-          Promise.resolve(chunks.map(function(data) {
-            return getSvg(data);
-          })));
-      chunks = tilesMetadata.splice(0, chunkSize);
-    }
-
-    function renderRow(promises) {
-      // Base case.
-      if (promises.length === 0) return;
-      promises.shift().then(function(results) {
-        results.forEach(function(result) {
-          renderSVGTile(ctx, result.svg, {x: result.x, y: result.y});
-        });
-        // Timeout gives some relief to browser to finish some other tasks
-        // and not hang the browser with this CPU intensive task.
-        window.setTimeout(function() {
-          // Resolve the remaining promises.
-          renderRow(promises);
-        }, 500);
+  function drawTiles(ctx, tiles) {
+    var context = getOffScreenContext(tiles.length * TILE_WIDTH, TILE_HEIGHT);
+    tiles.forEach(function(tile, index) {
+      renderTile(context, tile, function() {
+        if (tiles.length === index + 1) {
+          ctx.drawImage(context.canvas, 0, tiles[0].y);
+        }
       });
+    });
+  };
+
+  /**
+   * Draws PhotoMosaic on screen.
+   * @param {HTMLElement} image The source image from file input.
+   */
+  function drawMosiac(image, ctx, url) {
+    var rowData = {};
+    function renderRow(i) {
+      if (!rowData[i]) return i;
+      var tiles = [];
+      rowData[i].forEach(function(data) {
+        var tile = new SVGTile(data.svg, data.x, data.y);
+        tiles.push(tile);
+      });
+      drawTiles(ctx, tiles);
+      return renderRow(++i);
     };
-    renderRow(promises);
-    return canvas;
+    var tilesX = Math.floor(image.width / TILE_WIDTH);
+    var tilesY = Math.floor(image.height / TILE_HEIGHT);
+
+    var tiles = getTiles(image, tilesX, tilesY);
+    var i = 0;
+    var maxWorkers = navigator.hardwareConcurrency || 4;
+    function runWorker(worker) {
+      worker.onmessage = function(e) {
+        var row = e.data[0].y / TILE_HEIGHT;
+        rowData[row] = e.data;
+        if (row === i) {
+          i = renderRow(i);
+        }
+        if (tiles.length) {
+          runWorker(worker)
+        } else {
+          worker.terminate();
+        };
+      }
+      worker.postMessage(tiles.splice(0, tilesX));
+    }
+    if (tiles.length) {
+      for(var x = maxWorkers; x--; ) runWorker(new Worker(url));
+    }
   };
 
-  function createSVGUrl(svg) {
-    var svgBlob = new Blob([svg], {type: 'image/svg+xml;charset=utf-8'});
-    return DOMURL.createObjectURL(svgBlob);
-  };
-
-  function renderSVGTile(ctx, svg, pos) {
+  /**
+   * Renders svg tile on the given context.
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {!Tile} tile The tile to render.
+   * @param {function()} callback To be called after image is loaded.
+   * @throws Error
+   */
+  function renderTile(ctx, tile, callback) {
     var img = new Image();
-    var url = createSVGUrl(svg);
     img.onload = function() {
       try {
-        ctx.drawImage(img, pos.x, pos.y);
+        ctx.drawImage(this, tile.x, 0, tile.width, tile.height);
         ctx.imageSmoothingEnabled = false;
         ctx.mozImageSmoothingEnabled = false;
-        DOMURL.revokeObjectURL(url);
-      } catch(e) {
+        DOMURL.revokeObjectURL(tile.svgURL);
+        callback();
+      } catch (e) {
         throw new Error('Could not render image' + e);
       }
     };
-    img.src = url;
-  };
-
-  function getSvg(data) {
-    var svg = svgTemplate.slice(0);
-    svg.splice(2, 0, TILE_WIDTH);
-    svg.splice(4, 0, TILE_HEIGHT);
-    svg.splice(7, 0, '#' + data.hex);
-    return {svg: svg.join(''), x: data.x, y: data.y};
+    img.src = tile.svgURL;
   };
 
   function handleFileUpload(callback) {
