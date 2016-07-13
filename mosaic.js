@@ -154,17 +154,27 @@
     img.onload = function() { callback(this); }
   };
 
-  app.run = function run() {
-    var inputElement = document.getElementById('input');
-    var ul = document.getElementById('image-list');
-    var li = document.createElement('li');
-    ul.appendChild(li);
+  /**
+   * Main function which starts the rendering process.
+   * @throws RangeError
+   */
+  app.run = function run(url) {
+    var inputElement  = document.getElementById('input');
+    var outputElement = document.getElementById('output');
     inputElement.addEventListener('change', function() {
-      handleFileUpload.call(
-          this.files[0], function(image) {
-            var canvas = drawMosiac(image);
-            li.appendChild(canvas);
-          });
+      handleFileUpload.call(this.files[0], function(image) {
+        if (image.width < TILE_WIDTH || image.height < TILE_HEIGHT) {
+          console.log(TILE_WIDTH, TILE_HEIGHT);
+          throw new RangeError(
+              'Tile dimension cannot be greater than source image.');
+        }
+        var canvas  = document.createElement('canvas');
+        var context = canvas.getContext('2d');
+        canvas.width = image.width;
+        canvas.height = image.height;
+        drawMosiac(image, context, url);
+        outputElement.appendChild(canvas);
+      });
     }, false);
   };
 })(window, document, window.app || (window.app = {}));
